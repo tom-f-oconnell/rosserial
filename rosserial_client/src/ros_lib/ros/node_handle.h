@@ -66,7 +66,7 @@
 #define MODE_MSG_CHECKSUM   8   // checksum for msg and topic id
 
 
-#define MSG_TIMEOUT 20  //20 milliseconds to recieve all of message data
+#define MSG_TIMEOUT 5000  //20 milliseconds to recieve all of message data
 
 #include "ros/msg.h"
 
@@ -193,6 +193,7 @@ namespace ros {
         if ( mode_ != MODE_FIRST_FF){
           if (c_time > last_msg_timeout_time){
             mode_ = MODE_FIRST_FF;
+            logwarn("arduino timing out in read!");
           }
         }
 
@@ -205,6 +206,11 @@ namespace ros {
           checksum_ += data;
           if( mode_ == MODE_MESSAGE ){        /* message data being recieved */
             message_in[index_++] = data;
+            //
+            //char str[30];
+            //sprintf(str, "bytes: %d", bytes_);
+            //logwarn(str);
+            //
             bytes_--;
             if(bytes_ == 0)                  /* is message complete? if so, checksum */
               mode_ = MODE_MSG_CHECKSUM;
