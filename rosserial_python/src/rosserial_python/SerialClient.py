@@ -77,6 +77,7 @@ def load_message(package, message):
     m2 = getattr(m, 'msg')
     return getattr(m2, message)
 
+# TODO is this used elsewhere? old commits? it isn't in this file. delete?
 def load_service(package,service):
     s = load_pkg_module(package, 'srv')
     s = getattr(s, 'srv')
@@ -169,9 +170,12 @@ class ServiceServer:
         data_buffer = StringIO.StringIO()
         req.serialize(data_buffer)
         self.response = None
+        rospy.loginfo('rosserial_python: just before sending')
         if self.parent.send(self.id, data_buffer.getvalue()) >= 0:
+            # TODO what has the power to set self.response? is handlePacket called? how?
             while self.response == None:
                 pass
+        rospy.loginfo('rosserial_python: got response')
         return self.response
 
     def handlePacket(self, data):
@@ -183,7 +187,7 @@ class ServiceServer:
 
 class ServiceClient:
     """
-        ServiceServer responds to requests from ROS.
+        ServiceClient responds to requests from ROS.
     """
 
     def __init__(self, topic_info, parent):
@@ -318,7 +322,7 @@ class RosSerialServer:
 
 class SerialClient:
     """
-        ServiceServer responds to requests from the serial device.
+        SerialClient responds to requests from the serial device.
     """
 
     def __init__(self, port=None, baud=57600, timeout=5.0):
@@ -563,6 +567,7 @@ class SerialClient:
                 raise Exception('Checksum does not match: ' + srv.mres._md5sum + ',' + msg.md5sum)
         except Exception as e:
             rospy.logerr("Creation of service server failed: %s", e)
+
     def setupServiceServerSubscriber(self, data):
         """ Register a new service server. """
         try:
