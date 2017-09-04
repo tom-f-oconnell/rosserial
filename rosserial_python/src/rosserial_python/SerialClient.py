@@ -171,8 +171,6 @@ class ServiceServer:
         data_buffer = StringIO.StringIO()
         req.serialize(data_buffer)
         self.response = None
-        # TODO delete me
-        rospy.loginfo('rosserial_python: just before sending')
         # TODO check parent.send for paths that might lead to self.response being unsettable
         # TODO TODO fix send. this >= 0 check just checks that message length is > 0
         # (the length of the last argument) (and that msg isn't larger than buffer if buffer nonzero)
@@ -181,8 +179,6 @@ class ServiceServer:
             # regular publication handled same way?
             while self.response == None:
                 pass
-        # TODO delete me
-        rospy.loginfo('rosserial_python: got response')
         return self.response
 
     def handlePacket(self, data):
@@ -470,7 +466,6 @@ class SerialClient:
                 if self.port.inWaiting() < 1:
                     time.sleep(0.001)
                     continue
-                rospy.loginfo(str(self.port.inWaiting()) + ' IN WAITING')
 
                 # TODO why doing it this way? flag[0] not reused...
                 flag = [0,0]
@@ -515,7 +510,7 @@ class SerialClient:
                 topic_id, = struct.unpack("<h", topic_id_header)
 
                 #if topic_id != 7:
-                rospy.loginfo('topic_id ' + str(topic_id))
+                #    rospy.loginfo('topic_id ' + str(topic_id))
 
                 try:
                     # TODO delete me
@@ -536,11 +531,7 @@ class SerialClient:
                     # (assuming synced meant the clocks?...)
                     self.synced = True
                     try:
-                        if topic_id != 7:
-                            rospy.loginfo('calling callback in run')
                         self.callbacks[topic_id](msg)
-                        if topic_id != 7:
-                            rospy.loginfo('after callback in run')
                     except KeyError:
                         rospy.logerr("Tried to publish before configured, topic id %d" % topic_id)
                     rospy.sleep(0.001)
@@ -614,7 +605,6 @@ class SerialClient:
                 self.services[msg.topic_name] = srv
             if srv.mres._md5sum == msg.md5sum:
                 self.callbacks[msg.topic_id] = srv.handlePacket
-                rospy.loginfo(msg.topic_name + ' publisher topic_id ' + str(msg.topic_id))
             else:
                 raise Exception('Checksum does not match: ' + srv.mres._md5sum + ',' + msg.md5sum)
         except Exception as e:

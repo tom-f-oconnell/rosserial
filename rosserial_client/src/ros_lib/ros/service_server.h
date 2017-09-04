@@ -61,7 +61,10 @@ namespace ros {
         req.deserialize(data);
         (obj_->*cb_)(req,resp);
 	// TODO maybe response isn't being set correctly?
-        pub.publish(&resp);
+	int succ = 0;
+	while (succ <= 0) {
+	  succ = pub.publish(&resp);
+	}
       }
       virtual const char * getMsgType(){ return this->req.getType(); }
       virtual const char * getMsgMD5(){ return this->req.getMD5(); }

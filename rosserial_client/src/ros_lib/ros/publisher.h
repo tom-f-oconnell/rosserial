@@ -50,14 +50,6 @@ namespace ros {
         endpoint_(endpoint) {};
 
       int publish( const Msg * msg ){
-	// TODO delete me
-	char str[12];
-	sprintf(str, "id=%d", id_);
-        rosserial_msgs::Log l;
-        l.level = rosserial_msgs::Log::WARN;
-        l.msg = (char*) str;
-        nh_->publish(rosserial_msgs::TopicInfo::ID_LOG, &l);
-	//
         return nh_->publish(id_, msg);
       }
       int getEndpointType(){ return endpoint_; }

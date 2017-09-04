@@ -42,6 +42,9 @@
 #include "rosserial_msgs/Log.h"
 #include "rosserial_msgs/RequestParam.h"
 
+// TODO maybe make this and sync_seconds both configurable dynamically 
+// via parameters?
+//#define TIMEOUT_RECONFIGURE 
 #define SYNC_SECONDS        5
 
 #define MODE_FIRST_FF       0
@@ -116,6 +119,8 @@ namespace ros {
        * Setup Functions
        */
     public:
+      // TODO TODO what does configured_ mean here?
+      // why is the same name used for a protected flag?
       NodeHandle_() : configured_(false) {
 
         for(unsigned int i=0; i< MAX_PUBLISHERS; i++)
@@ -168,6 +173,8 @@ namespace ros {
       int index_;
       int checksum_;
 
+      // TODO change name to something like synced_? need separate 
+      // configured_ state var for other case(s)?
       bool configured_;
 
       /* used for syncing the time */
@@ -185,9 +192,11 @@ namespace ros {
 
         /* restart if timed out */
         uint32_t c_time = hardware_.time();
-        if( (c_time - last_sync_receive_time) > (SYNC_SECONDS*2200) ){
-            configured_ = false;
-         }
+	#ifdef TIMEOUT_RECONFIGURE
+        if((c_time - last_sync_receive_time) > (SYNC_SECONDS*2200) ){
+	  configured_ = false;
+        }
+	#endif
 
         /* reset if message has timed out */
         if ( mode_ != MODE_FIRST_FF){
@@ -219,9 +228,9 @@ namespace ros {
               mode_++;
               last_msg_timeout_time = c_time + MSG_TIMEOUT;
             }
-            else if( hardware_.time() - c_time > (SYNC_SECONDS)){
+            else if( hardware_.time() - c_time > SYNC_SECONDS){
               /* We have been stuck in spinOnce too long, return error */
-              configured_=false;
+              configured_ = false;
               return -2;
             }
           }else if( mode_ == MODE_PROTOCOL_VER ){
@@ -229,8 +238,12 @@ namespace ros {
               mode_++;
             }else{
               mode_ = MODE_FIRST_FF;
+	      // TODO fix. when is this state reached? often?
               if (configured_ == false)
                   requestSyncTime(); 	/* send a msg back showing our protocol version */
+		  // TODO TODO why is last_sync_time not updated here? seems wrong.
+		  // maybe its update should just go inside requestSyncTime?
+		  // or is this just used to send the protocol version here? be more clear?
             }
 	  }else if( mode_ == MODE_SIZE_L ){   /* bottom half of message size */
             bytes_ = data;
@@ -257,9 +270,12 @@ namespace ros {
           }else if( mode_ == MODE_MSG_CHECKSUM ){ /* do checksum */
             mode_ = MODE_FIRST_FF;
             if( (checksum_%256) == 255){
+	      // TODO shouldn't topics be negotiated whenever we have some and they havent, as well?
               if(topic_ == TopicInfo::ID_PUBLISHER){
                 requestSyncTime();
+		// TODO is this reached whenever the thing needs reconfigured?
                 negotiateTopics();
+		// TODO how do these differ?
                 last_sync_time = c_time;
                 last_sync_receive_time = c_time;
                 return -1;
@@ -303,6 +319,7 @@ namespace ros {
 
       void requestSyncTime()
       {
+	// TODO has this been initialized?
         std_msgs::Time t;
         publish(TopicInfo::ID_TIME, &t);
         rt_time = hardware_.time();
@@ -343,6 +360,10 @@ namespace ros {
        * Topic Management
        */
 
+      // TODO TODO if these advtertise calls are not going to publish topic info,
+      // shouldn't there be a block in spinOnce that checks for new topics created
+      // arduino side? (or does it?)
+      
       /* Register a new publisher */
       bool advertise(Publisher & p)
       {
@@ -398,8 +419,8 @@ namespace ros {
         return false;
       }
 
-      // TODO can the arduino initiate this? require server node to be in a certain state?
-      // when all is this called in spinOnce?
+      // TODO how often is this called? is it actually disruptive to services,
+      // or was it just configured being set false?
       void negotiateTopics()
       {
         rosserial_msgs::TopicInfo ti;
@@ -431,13 +452,16 @@ namespace ros {
         configured_ = true;
       }
 
-      // TODO is this failing or is python server?
+      // TODO is return type actually used somewhere?
       virtual int publish(int id, const Msg * msg)
       {
         if(id >= 100 && !configured_) {
-	  char str[40];
+          /*
+	  char str[60];
+	  // TODO pull request this?
 	  sprintf(str, "Tried to publish to %d while not configured", id);
 	  logerror(str);
+          */
 	  // TODO why is this returning 0 and not -1?
 	  return 0;
 	}
