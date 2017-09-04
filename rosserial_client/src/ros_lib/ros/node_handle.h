@@ -273,9 +273,9 @@ namespace ros {
               }else{
 		// TODO why do they index this way? why not have 100 be a const / DEFINE?
                 if(subscribers[topic_-100]) {
-	          logwarn("client before callback");
+	          //logwarn("client before callback");
                   subscribers[topic_-100]->callback( message_in );
-	          logwarn("client after callback");
+	          //logwarn("client after callback");
 		}
               }
             }
@@ -434,8 +434,13 @@ namespace ros {
       // TODO is this failing or is python server?
       virtual int publish(int id, const Msg * msg)
       {
-        if(id >= 100 && !configured_)
+        if(id >= 100 && !configured_) {
+	  char str[40];
+	  sprintf(str, "Tried to publish to %d while not configured", id);
+	  logerror(str);
+	  // TODO why is this returning 0 and not -1?
 	  return 0;
+	}
 
         /* serialize message */
         uint16_t l = msg->serialize(message_out+7);
@@ -449,6 +454,16 @@ namespace ros {
         message_out[5] = (uint8_t) ((int16_t)id&255);
         message_out[6] = (uint8_t) ((int16_t)id>>8);
 
+	// TODO delete me
+	// TODO maybe set global last_topic_id and print in spin?
+	/* screws up callbacks for some reason...
+	if (id > 100) {
+	  char str[10];
+	  sprintf(str, "id=%d, l=%d", id, l);
+	  loginfo(str);
+	}
+	*/
+
         /* calculate checksum */
         int chk = 0;
         for(int i =5; i<l+7; i++)
@@ -457,6 +472,15 @@ namespace ros {
         message_out[l++] = 255 - (chk%256);
 
         if( l <= OUTPUT_SIZE ){
+	  /*
+	  // TODO check write success?
+	  int wrote;
+          wrote = hardware_.write(message_out, l);
+	  if (wrote != l) {
+	    logerror("did not write enough bytes");
+	    return -1;
+          }
+	  */
           hardware_.write(message_out, l);
           return l;
         }else{

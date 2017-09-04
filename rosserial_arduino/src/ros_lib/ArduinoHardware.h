@@ -100,9 +100,15 @@ class ArduinoHardware {
     }
 
     int read(){return iostream->read();};
-    void write(uint8_t* data, int length){
+    // TODO shouldn't this maybe return an int? (# bytes written? 
+    // or not really meaningful b/c possible buffer problems?)
+    int write(uint8_t* data, int length){
+      int wrote;
+      wrote = 0;
+      // TODO why one byte at a time?
       for(int i=0; i<length; i++)
-        iostream->write(data[i]);
+        wrote += iostream->write(data[i]);
+      return wrote;
     }
 
     unsigned long time(){return millis();}

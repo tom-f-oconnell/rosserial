@@ -1,0 +1,1 @@
+script to automatically add upstream? git provide a way for that?

@@ -42,6 +42,7 @@
 
 namespace ros {
 
+  // TODO what is the purpose of this ObjT thing?
   template<typename MReq , typename MRes, typename ObjT=void>
   class ServiceServer : public Subscriber_ {
     public:
@@ -59,6 +60,7 @@ namespace ros {
       virtual void callback(unsigned char *data){
         req.deserialize(data);
         (obj_->*cb_)(req,resp);
+	// TODO maybe response isn't being set correctly?
         pub.publish(&resp);
       }
       virtual const char * getMsgType(){ return this->req.getType(); }

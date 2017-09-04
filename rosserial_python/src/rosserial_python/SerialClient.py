@@ -368,8 +368,7 @@ class SerialClient:
                 raise SystemExit
 
         # TODO do we really want to do this after just setting it to self.timeout*0.5?
-        self.port.timeout = 0.01  # Edit the port timeout
-
+        self.port.timeout = 0.01  # (0.01) Edit the port timeout
         time.sleep(0.1)           # Wait for ready (patch for Uno)
 
         # hydro introduces protocol ver2 which must match node_handle.h
@@ -428,6 +427,7 @@ class SerialClient:
             read_current = read_start
             bytes_remaining = length
             result = bytearray()
+            # TODO what happens if it times out? is something erroneous added to list?
             while bytes_remaining != 0 and read_current - read_start < self.timeout:
                 received = self.port.read(bytes_remaining)
                 if len(received) != 0:
@@ -470,11 +470,17 @@ class SerialClient:
                 if self.port.inWaiting() < 1:
                     time.sleep(0.001)
                     continue
+                rospy.loginfo(str(self.port.inWaiting()) + ' IN WAITING')
 
                 # TODO why doing it this way? flag[0] not reused...
                 flag = [0,0]
                 flag[0] = self.tryRead(1)
+                # TODO should we tell the arduino to retry sending whatever it just send (at least if service)
+                # in this case?
                 if (flag[0] != '\xff'):
+                    # this doesn't actually seem to be happening when we aren't getting the info...
+                    # maybe it isn't being sent correctly?
+                    #rospy.logwarn('flag was wrong')
                     continue
 
                 flag[1] = self.tryRead(1)
@@ -508,8 +514,8 @@ class SerialClient:
                 # TODO what does the comma (with no right hand side) do?
                 topic_id, = struct.unpack("<h", topic_id_header)
 
-                if topic_id != 7:
-                    rospy.loginfo('topic_id ' + str(topic_id))
+                #if topic_id != 7:
+                rospy.loginfo('topic_id ' + str(topic_id))
 
                 try:
                     # TODO delete me
@@ -542,6 +548,7 @@ class SerialClient:
                     rospy.loginfo("wrong checksum for topic id and msg")
 
             except IOError:
+                rospy.logerr('had an IOError. re-requesting topics.')
                 # One of the read calls had an issue. Just to be safe, request that the client
                 # reinitialize their topics.
                 self.requestTopics()

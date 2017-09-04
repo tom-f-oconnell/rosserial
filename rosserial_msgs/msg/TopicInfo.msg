@@ -7,6 +7,9 @@ uint16 ID_PARAMETER_REQUEST=6
 uint16 ID_LOG=7
 uint16 ID_TIME=10
 uint16 ID_TX_STOP=11
+# TODO include some for requesting results of callbacks if read timed out / failed?
+# + store results (perhaps only not successful, if arduino can detect) for this
+# request in arduino?
 
 # The endpoint ID for this topic
 uint16 topic_id
