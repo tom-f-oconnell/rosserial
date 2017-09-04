@@ -193,7 +193,7 @@ namespace ros {
         if ( mode_ != MODE_FIRST_FF){
           if (c_time > last_msg_timeout_time){
             mode_ = MODE_FIRST_FF;
-            logwarn("arduino timing out in read!");
+            logwarn("rosserial_client timing out in read!");
           }
         }
 
@@ -271,8 +271,12 @@ namespace ros {
               }else if(topic_ == TopicInfo::ID_TX_STOP){
                   configured_ = false;
               }else{
-                if(subscribers[topic_-100])
+		// TODO why do they index this way? why not have 100 be a const / DEFINE?
+                if(subscribers[topic_-100]) {
+	          logwarn("client before callback");
                   subscribers[topic_-100]->callback( message_in );
+	          logwarn("client after callback");
+		}
               }
             }
           }
@@ -394,6 +398,8 @@ namespace ros {
         return false;
       }
 
+      // TODO can the arduino initiate this? require server node to be in a certain state?
+      // when all is this called in spinOnce?
       void negotiateTopics()
       {
         rosserial_msgs::TopicInfo ti;
@@ -425,6 +431,7 @@ namespace ros {
         configured_ = true;
       }
 
+      // TODO is this failing or is python server?
       virtual int publish(int id, const Msg * msg)
       {
         if(id >= 100 && !configured_)

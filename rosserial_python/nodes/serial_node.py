@@ -50,6 +50,11 @@ if __name__=="__main__":
 
     port_name = rospy.get_param('~port','/dev/ttyUSB0')
     baud = int(rospy.get_param('~baud','57600'))
+    # TODO cleaner way?
+    # None follows old behavior of 3 * timeout
+    # False prevents any such timeouts (failure modes?)
+    # other positive double values are also valid timeouts
+    sync_timeout = rospy.get_param('~sync_timeout', None)
 
     # TODO: should these really be global?
     tcp_portnum = int(rospy.get_param('/rosserial_embeddedlinux/tcp_port', '11411'))
@@ -81,7 +86,8 @@ if __name__=="__main__":
         while not rospy.is_shutdown():
             rospy.loginfo("Connecting to %s at %d baud" % (port_name,baud) )
             try:
-                client = SerialClient(port_name, baud)
+                # TODO present timeout as parameter?
+                client = SerialClient(port_name, baud, sync_timeout=sync_timeout)
                 client.run()
             except KeyboardInterrupt:
                 break

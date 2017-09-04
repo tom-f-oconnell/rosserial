@@ -165,21 +165,30 @@ class ServiceServer:
         rospy.loginfo("Removing service: %s", self.topic)
         self.service.shutdown()
 
+    # TODO canonical way to indicate service failure in ros? that if timeout w/o response?
     def callback(self, req):
         """ Forward request to serial device. """
         data_buffer = StringIO.StringIO()
         req.serialize(data_buffer)
         self.response = None
+        # TODO delete me
         rospy.loginfo('rosserial_python: just before sending')
+        # TODO check parent.send for paths that might lead to self.response being unsettable
+        # TODO TODO fix send. this >= 0 check just checks that message length is > 0
+        # (the length of the last argument) (and that msg isn't larger than buffer if buffer nonzero)
         if self.parent.send(self.id, data_buffer.getvalue()) >= 0:
-            # TODO what has the power to set self.response? is handlePacket called? how?
+            # TODO maybe timeout and either directly retry or indicate we need to retry?
+            # regular publication handled same way?
             while self.response == None:
                 pass
+        # TODO delete me
         rospy.loginfo('rosserial_python: got response')
         return self.response
 
     def handlePacket(self, data):
         """ Forward response to ROS network. """
+        # TODO delete me
+        rospy.loginfo('rosserial_python: in ServiceServer handlePacket (in self.callbacks; called in run)')
         r = self.mres()
         r.deserialize(data)
         self.response = r
@@ -223,6 +232,7 @@ class RosSerialServer:
         for additional connections. Each forked process is a new ros node, and proxies ros
         operations (e.g. publish/subscribe) from its connection to the rest of ros.
     """
+    # TODO mention that this is only (i think?) used for tcp connections in docstring
     def __init__(self, tcp_portnum, fork_server=False):
         print "Fork_server is: ", fork_server
         self.tcp_portnum = tcp_portnum
@@ -325,7 +335,7 @@ class SerialClient:
         SerialClient responds to requests from the serial device.
     """
 
-    def __init__(self, port=None, baud=57600, timeout=5.0):
+    def __init__(self, port=None, baud=57600, timeout=5.0, sync_timeout=None):
         """ Initialize node, connect to bus, attempt to negotiate topics. """
         self.mutex = thread.allocate_lock()
 
@@ -333,16 +343,22 @@ class SerialClient:
         self.lastsync_lost = rospy.Time(0)
         self.timeout = timeout
         self.synced = False
+        if sync_timeout is None:
+            self.sync_timeout = self.timeout * 3
+        else:
+            self.sync_timeout = sync_timeout
 
         self.pub_diagnostics = rospy.Publisher('/diagnostics', diagnostic_msgs.msg.DiagnosticArray, queue_size=10)
 
-        if port== None:
+        if port == None:
             # no port specified, listen for any new port?
             pass
         elif hasattr(port, 'read'):
             #assume its a filelike object
             self.port=port
         else:
+            # TODO no read attempts that time out should still be effectively waited on by
+            # other code in here (causing it to hang)
             # open a specific port
             try:
                 self.port = Serial(port, baud, timeout=self.timeout*0.5)
@@ -351,6 +367,7 @@ class SerialClient:
                 rospy.signal_shutdown("Error opening serial: %s" % e)
                 raise SystemExit
 
+        # TODO do we really want to do this after just setting it to self.timeout*0.5?
         self.port.timeout = 0.01  # Edit the port timeout
 
         time.sleep(0.1)           # Wait for ready (patch for Uno)
@@ -369,6 +386,9 @@ class SerialClient:
         self.buffer_in = -1
 
         self.callbacks = dict()
+        # TODO maybe check to see why these callbacks aren't working in the middle?
+        # is it the arduino code? (re: why I can't seem to advertise services after getting params)
+
         # endpoints for creating new pubs/subs
         self.callbacks[TopicInfo.ID_PUBLISHER] = self.setupPublisher
         self.callbacks[TopicInfo.ID_SUBSCRIBER] = self.setupSubscriber
@@ -415,6 +435,7 @@ class SerialClient:
                     bytes_remaining -= len(received)
                 read_current = time.time()
 
+            # TODO so is it timing out or what? thought it was but not seeing this...
             if bytes_remaining != 0:
                 rospy.logwarn("Serial Port read returned short (expected %d bytes, received %d instead)."
                               % (length, length - bytes_remaining))
@@ -429,24 +450,28 @@ class SerialClient:
         """ Forward recieved messages to appropriate publisher. """
         data = ''
         while not rospy.is_shutdown():
-            if (rospy.Time.now() - self.lastsync).to_sec() > (self.timeout * 3):
+            # TODO try not to renumber topics in renegotiating, so old data can still come through?
+            if self.sync_timeout and (rospy.Time.now() - self.lastsync).to_sec() > self.sync_timeout:
                 if (self.synced == True):
                     rospy.logerr("Lost sync with device, restarting...")
                 else:
                     rospy.logerr("Unable to sync with device; possible link problem or link software version mismatch such as hydro rosserial_python with groovy Arduino")
                 self.lastsync_lost = rospy.Time.now()
                 self.sendDiagnostics(diagnostic_msgs.msg.DiagnosticStatus.ERROR, "no sync with device")
+                # see TODO above
                 self.requestTopics()
                 self.lastsync = rospy.Time.now()
 
             # This try-block is here because we make multiple calls to read(). Any one of them can throw
             # an IOError if there's a serial problem or timeout. In that scenario, a single handler at the
             # bottom attempts to reconfigure the topics.
+            # TODO do things that were lost get resent in this case? (I think they should)
             try:
                 if self.port.inWaiting() < 1:
                     time.sleep(0.001)
                     continue
 
+                # TODO why doing it this way? flag[0] not reused...
                 flag = [0,0]
                 flag[0] = self.tryRead(1)
                 if (flag[0] != '\xff'):
@@ -464,6 +489,9 @@ class SerialClient:
                     rospy.loginfo("%s, expected %s" % (found_ver_msg, protocol_ver_msgs[self.protocol_ver]))
                     continue
 
+                # TODO can i do something in here to print an error in the timeout case
+                # that i tried to fix with my initial changes to rosserial? in client?
+                
                 msg_len_bytes = self.tryRead(2)
                 msg_length, = struct.unpack("<h", msg_len_bytes)
 
@@ -477,9 +505,15 @@ class SerialClient:
 
                 # topic id (2 bytes)
                 topic_id_header = self.tryRead(2)
+                # TODO what does the comma (with no right hand side) do?
                 topic_id, = struct.unpack("<h", topic_id_header)
 
+                if topic_id != 7:
+                    rospy.loginfo('topic_id ' + str(topic_id))
+
                 try:
+                    # TODO delete me
+                    #rospy.logwarn('rosserial_python trying to read ' + str(msg_length) + ' bytes')
                     msg = self.tryRead(msg_length)
                 except IOError:
                     self.sendDiagnostics(diagnostic_msgs.msg.DiagnosticStatus.ERROR, "Packet Failed : Failed to read msg data")
@@ -492,9 +526,15 @@ class SerialClient:
                 checksum = sum(map(ord, topic_id_header) ) + sum(map(ord, msg)) + ord(chk)
 
                 if checksum % 256 == 255:
+                    # TODO why is this set here? doesn't seem to correspond to being synced...
+                    # (assuming synced meant the clocks?...)
                     self.synced = True
                     try:
+                        if topic_id != 7:
+                            rospy.loginfo('calling callback in run')
                         self.callbacks[topic_id](msg)
+                        if topic_id != 7:
+                            rospy.loginfo('after callback in run')
                     except KeyError:
                         rospy.logerr("Tried to publish before configured, topic id %d" % topic_id)
                     rospy.sleep(0.001)
@@ -506,6 +546,8 @@ class SerialClient:
                 # reinitialize their topics.
                 self.requestTopics()
 
+    # TODO TODO when all do these change? why not take the max or something? / sum
+    # TODO maybe don't use a keyword here? (it does work, however)
     def setPublishSize(self, bytes):
         if self.buffer_out < 0:
             self.buffer_out = bytes
@@ -549,6 +591,8 @@ class SerialClient:
         except Exception as e:
             rospy.logerr("Creation of subscriber failed: %s", e)
 
+    # TODO are both this and the below used? why do they seem to repeat code?
+    # like making ServiceServer object and announcing its creation?
     def setupServiceServerPublisher(self, data):
         """ Register a new service server. """
         try:
@@ -563,6 +607,7 @@ class SerialClient:
                 self.services[msg.topic_name] = srv
             if srv.mres._md5sum == msg.md5sum:
                 self.callbacks[msg.topic_id] = srv.handlePacket
+                rospy.loginfo(msg.topic_name + ' publisher topic_id ' + str(msg.topic_id))
             else:
                 raise Exception('Checksum does not match: ' + srv.mres._md5sum + ',' + msg.md5sum)
         except Exception as e:
@@ -605,6 +650,7 @@ class SerialClient:
                 raise Exception('Checksum does not match: ' + srv.mreq._md5sum + ',' + msg.md5sum)
         except Exception as e:
             rospy.logerr("Creation of service client failed: %s", e)
+
     def setupServiceClientSubscriber(self, data):
         """ Register a new service client. """
         try:
@@ -632,7 +678,6 @@ class SerialClient:
         t.serialize(data_buffer)
         self.send( TopicInfo.ID_TIME, data_buffer.getvalue() )
         self.lastsync = rospy.Time.now()
-
 
     def handleParameterRequest(self, data):
         """ Send parameters to device. Supports only simple datatypes and arrays of such. """
@@ -689,19 +734,26 @@ class SerialClient:
         """ Send a message on a particular topic to the device. """
         with self.mutex:
             length = len(msg)
+            # TODO why checking buffer_in > 0? seems like it should still fail?
             if self.buffer_in > 0 and length > self.buffer_in:
                 rospy.logerr("Message from ROS network dropped: message larger than buffer.")
+                # TODO logerr as well?
                 print msg
                 return -1
             else:
-                    #modified frame : header(2 bytes) + msg_len(2 bytes) + msg_len_chk(1 byte) + topic_id(2 bytes) + msg(x bytes) + msg_topic_id_chk(1 byte)
-                    # second byte of header is protocol version
-                    msg_len_checksum = 255 - ( ((length&255) + (length>>8))%256 )
-                    msg_checksum = 255 - ( ((topic&255) + (topic>>8) + sum([ord(x) for x in msg]))%256 )
-                    data = "\xff" + self.protocol_ver  + chr(length&255) + chr(length>>8) + chr(msg_len_checksum) + chr(topic&255) + chr(topic>>8)
-                    data = data + msg + chr(msg_checksum)
-                    self.port.write(data)
-                    return length
+                #modified frame : header(2 bytes) + msg_len(2 bytes) + msg_len_chk(1 byte) + topic_id(2 bytes) + msg(x bytes) + msg_topic_id_chk(1 byte)
+                # second byte of header is protocol version
+                msg_len_checksum = 255 - ( ((length&255) + (length>>8))%256 )
+                msg_checksum = 255 - ( ((topic&255) + (topic>>8) + sum([ord(x) for x in msg]))%256 )
+                data = "\xff" + self.protocol_ver  + chr(length&255) + chr(length>>8) + chr(msg_len_checksum) + chr(topic&255) + chr(topic>>8)
+                data = data + msg + chr(msg_checksum)
+                # TODO worth actually checking we wrote enough / returning this? (see also below)
+                wrote = self.port.write(data)
+                # TODO delete me
+                #rospy.logwarn('wrote ' + str(wrote) + ' of ' + str(length))
+                # TODO what, can we not expect the port.write to be able to return a length?
+                # this seems useless as is...
+                return length
 
     def sendDiagnostics(self, level, msg_text):
         msg = diagnostic_msgs.msg.DiagnosticArray()
