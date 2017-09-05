@@ -183,8 +183,6 @@ class ServiceServer:
 
     def handlePacket(self, data):
         """ Forward response to ROS network. """
-        # TODO delete me
-        rospy.loginfo('rosserial_python: in ServiceServer handlePacket (in self.callbacks; called in run)')
         r = self.mres()
         r.deserialize(data)
         self.response = r
@@ -513,8 +511,6 @@ class SerialClient:
                 #    rospy.loginfo('topic_id ' + str(topic_id))
 
                 try:
-                    # TODO delete me
-                    #rospy.logwarn('rosserial_python trying to read ' + str(msg_length) + ' bytes')
                     msg = self.tryRead(msg_length)
                 except IOError:
                     self.sendDiagnostics(diagnostic_msgs.msg.DiagnosticStatus.ERROR, "Packet Failed : Failed to read msg data")
@@ -746,8 +742,6 @@ class SerialClient:
                 data = data + msg + chr(msg_checksum)
                 # TODO worth actually checking we wrote enough / returning this? (see also below)
                 wrote = self.port.write(data)
-                # TODO delete me
-                #rospy.logwarn('wrote ' + str(wrote) + ' of ' + str(length))
                 # TODO what, can we not expect the port.write to be able to return a length?
                 # this seems useless as is...
                 return length
