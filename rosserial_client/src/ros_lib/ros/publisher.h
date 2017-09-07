@@ -64,8 +64,7 @@ namespace ros {
         rosserial_msgs::Log l;
         l.level = rosserial_msgs::Log::INFO;
 	// problem that it is const?
-        //l.msg = str;
-	l.msg = (char *) "testing!!!!";
+        l.msg = str;
         nh_->publish(rosserial_msgs::TopicInfo::ID_LOG, &l);
       }
       #endif
