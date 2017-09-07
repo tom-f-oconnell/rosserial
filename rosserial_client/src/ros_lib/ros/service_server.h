@@ -58,14 +58,23 @@ namespace ros {
 
       // these refer to the subscriber
       virtual void callback(unsigned char *data){
-        req.deserialize(data);
+	int offset;
+	// TODO bounds check(ed)?
+	// TODO is return type of that int? set correctly?
+        offset = req.deserialize(data);
         (obj_->*cb_)(req,resp);
 	// TODO maybe response isn't being set correctly?
 	int succ = 0;
+	// TODO change back?
 	while (succ <= 0) {
 	  succ = pub.publish(&resp);
 	}
+        char str[20];
+        sprintf(str, "clnt offst %d", offset);
+        pub.loginfo(str);
       }
+
+      
       virtual const char * getMsgType(){ return this->req.getType(); }
       virtual const char * getMsgMD5(){ return this->req.getMD5(); }
       virtual int getEndpointType(){ return rosserial_msgs::TopicInfo::ID_SERVICE_SERVER + rosserial_msgs::TopicInfo::ID_SUBSCRIBER; }
@@ -90,11 +99,18 @@ namespace ros {
         this->cb_ = cb;
       }
 
+      // TODO what is the difference between this callback and the above?
       // these refer to the subscriber
       virtual void callback(unsigned char *data){
-        req.deserialize(data);
+	int offset;
+	// TODO bounds check(ed)?
+	// TODO is return type of that int? set correctly?
+        offset = req.deserialize(data);
         cb_(req,resp);
         pub.publish(&resp);
+        char str[20];
+        sprintf(str, "clnt offst %d", offset);
+        pub.loginfo(str);
       }
       virtual const char * getMsgType(){ return this->req.getType(); }
       virtual const char * getMsgMD5(){ return this->req.getMD5(); }

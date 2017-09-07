@@ -289,9 +289,7 @@ namespace ros {
               }else{
 		// TODO why do they index this way? why not have 100 be a const / DEFINE?
                 if(subscribers[topic_-100]) {
-	          //logwarn("client before callback");
                   subscribers[topic_-100]->callback( message_in );
-	          //logwarn("client after callback");
 		}
               }
             }

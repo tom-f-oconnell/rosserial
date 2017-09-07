@@ -38,6 +38,11 @@
 #include "rosserial_msgs/TopicInfo.h"
 #include "ros/node_handle.h"
 
+// for debugging state inside things having access to a publisher, 
+// but not a nodehandle
+// TODO change to debug
+#define PUBLISHER_LOGINFO
+
 namespace ros {
 
   /* Generic Publisher */
@@ -52,6 +57,19 @@ namespace ros {
       int publish( const Msg * msg ){
         return nh_->publish(id_, msg);
       }
+
+      #ifdef PUBLISHER_LOGINFO
+      // TODO take a different type?
+      void loginfo( const char *str ){
+        rosserial_msgs::Log l;
+        l.level = rosserial_msgs::Log::INFO;
+	// problem that it is const?
+        //l.msg = str;
+	l.msg = (char *) "testing!!!!";
+        nh_->publish(rosserial_msgs::TopicInfo::ID_LOG, &l);
+      }
+      #endif
+
       int getEndpointType(){ return endpoint_; }
 
       const char * topic_;
