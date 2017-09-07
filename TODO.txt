@@ -1,1 +1,19 @@
 script to automatically add upstream? git provide a way for that?
+
+why the different sizes in this union definition? generated a little before 4b4f03bc2
+, but should be same
+
+      union {
+        uint64_t real;
+        uint32_t base;
+      } u_ms_on;
+      u_ms_on.base = 0;
+      u_ms_on.base |= ((uint32_t) (*(inbuffer + offset + 0))) << (8 * 0);
+      u_ms_on.base |= ((uint32_t) (*(inbuffer + offset + 1))) << (8 * 1);
+      u_ms_on.base |= ((uint32_t) (*(inbuffer + offset + 2))) << (8 * 2);
+      u_ms_on.base |= ((uint32_t) (*(inbuffer + offset + 3))) << (8 * 3);
+      this->ms_on = u_ms_on.real;
+
+(from arduinoXXX/libraries/ros_lib/stimuli/State.h)
+
+which code generates this?

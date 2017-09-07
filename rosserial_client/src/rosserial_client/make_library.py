@@ -79,6 +79,7 @@ class PrimitiveDataType:
         self.bytes = bytes
 
     def make_initializer(self, f, trailer):
+        # TODO what does this syntax do?
         f.write('      %s(0)%s\n' % (self.name, trailer))
 
     def make_declaration(self, f):
@@ -88,10 +89,15 @@ class PrimitiveDataType:
         cn = self.name.replace("[","").replace("]","").split(".")[-1]
         if self.type != type_to_var(self.bytes):
             f.write('      union {\n')
+            # TODO is it ever acceptable for real and base to be different sizes...?
+            # not sure why we'd want that
             f.write('        %s real;\n' % self.type)
             f.write('        %s base;\n' % type_to_var(self.bytes))
             f.write('      } u_%s;\n' % cn)
             f.write('      u_%s.real = this->%s;\n' % (cn,self.name))
+            # TODO why don't they use a const for the 0xFF? which will yield smaller / faster 
+            # machine code? likewise w/ the 8 + indices? flag to switch between speed / space
+            # optimization?
             for i in range(self.bytes):
                 f.write('      *(outbuffer + offset + %d) = (u_%s.base >> (8 * %d)) & 0xFF;\n' % (i, cn, i) )
         else:
@@ -551,6 +557,7 @@ def MakeLibrary(package, output_path, rospack):
 
 def rosserial_generate(rospack, path, mapping):
     # horrible hack -- make this die
+    # TODO get rid of this? why is it global?
     global ROS_TO_EMBEDDED_TYPES
     ROS_TO_EMBEDDED_TYPES = mapping
 

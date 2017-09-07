@@ -40,7 +40,7 @@
 
 // for debugging state inside things having access to a publisher, 
 // but not a nodehandle
-// TODO change to debug
+// TODO change to debug?
 #define PUBLISHER_LOGINFO
 
 namespace ros {
@@ -59,11 +59,9 @@ namespace ros {
       }
 
       #ifdef PUBLISHER_LOGINFO
-      // TODO take a different type?
       void loginfo( const char *str ){
         rosserial_msgs::Log l;
         l.level = rosserial_msgs::Log::INFO;
-	// problem that it is const?
         l.msg = str;
         nh_->publish(rosserial_msgs::TopicInfo::ID_LOG, &l);
       }

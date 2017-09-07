@@ -174,7 +174,6 @@ class ServiceServer:
         # TODO check parent.send for paths that might lead to self.response being unsettable
         # TODO TODO fix send. this >= 0 check just checks that message length is > 0
         # (the length of the last argument) (and that msg isn't larger than buffer if buffer nonzero)
-        rospy.logwarn(str(data_buffer.getvalue()))
         rospy.logwarn('buffer length on call: ' + str(len(data_buffer.getvalue())))
         if self.parent.send(self.id, data_buffer.getvalue()) >= 0:
             # TODO maybe timeout and either directly retry or indicate we need to retry?

@@ -60,7 +60,8 @@ ROS_TO_EMBEDDED_TYPES = {
     'int32'   :   ('int32_t',           4, PrimitiveDataType, []),
     'uint32'  :   ('uint32_t',          4, PrimitiveDataType, []),
     'int64'   :   ('int64_t',           8, PrimitiveDataType, []),
-    'uint64'  :   ('uint64_t',          4, PrimitiveDataType, []),
+    # TODO why is this 64 bit type declared as 4 bytes? bug or something i dont get?
+    'uint64'  :   ('uint64_t',          8, PrimitiveDataType, []),
     'float32' :   ('float',             4, PrimitiveDataType, []),
     'float64' :   ('float',             4, AVR_Float64DataType, []),
     'time'    :   ('ros::Time',         8, TimeDataType, ['ros/time']),
@@ -88,5 +89,6 @@ shutil.copytree(rosserial_arduino_dir+"/src/ros_lib", path+"/ros_lib")
 rosserial_client_copy_files(rospack, path+"/ros_lib/")
 
 # generate messages
+# TODO why pass rospack in rather than just remake it in there?
 rosserial_generate(rospack, path+"/ros_lib", ROS_TO_EMBEDDED_TYPES)
 

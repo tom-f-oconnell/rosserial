@@ -108,9 +108,11 @@ namespace ros {
         offset = req.deserialize(data);
         cb_(req,resp);
         pub.publish(&resp);
+	/*
         char str[20];
         sprintf(str, "clnt offst %d", offset);
         pub.loginfo(str);
+	*/
       }
       virtual const char * getMsgType(){ return this->req.getType(); }
       virtual const char * getMsgMD5(){ return this->req.getMD5(); }
