@@ -50,6 +50,11 @@ if __name__=="__main__":
 
     port_name = rospy.get_param('~port','/dev/ttyUSB0')
     baud = int(rospy.get_param('~baud','57600'))
+
+    # for systems where pyserial can yields errors in the fcntl.ioctl(self.fd, TIOCMBIS, \
+    # TIOCM_DTR_str) line, which bubbles up as an IOError, when using simulated port
+    testing = rospy.get_param('~testing', False)
+
     # TODO cleaner way?
     # None follows old behavior of 3 * timeout
     # False prevents any such timeouts (failure modes?)
@@ -68,6 +73,7 @@ if __name__=="__main__":
         tcp_portnum = int(sys.argv[2])
 
     if port_name == "tcp" :
+        # TODO fix this too?
         server = RosSerialServer(tcp_portnum, fork_server)
         rospy.loginfo("Waiting for socket connections on port %d" % tcp_portnum)
         try:
@@ -87,7 +93,7 @@ if __name__=="__main__":
             rospy.loginfo("Connecting to %s at %d baud" % (port_name,baud) )
             try:
                 # TODO present timeout as parameter?
-                client = SerialClient(port_name, baud, sync_timeout=sync_timeout)
+                client = SerialClient(port_name, baud, sync_timeout=sync_timeout, testing=testing)
                 client.run()
             except KeyboardInterrupt:
                 break
