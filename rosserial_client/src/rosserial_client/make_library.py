@@ -59,7 +59,7 @@ def type_to_var(ty):
 #####################################################################
 # Data Types
 
-class EnumerationType:
+class EnumerationType(object):
     """ For data values. """
 
     def __init__(self, name, ty, value):
@@ -70,7 +70,7 @@ class EnumerationType:
     def make_declaration(self, f):
         f.write('      enum { %s = %s };\n' % (self.name, self.value))
 
-class PrimitiveDataType:
+class PrimitiveDataType(object):
     """ Our datatype is a C/C++ primitive. """
 
     def __init__(self, name, ty, bytes):
@@ -105,7 +105,7 @@ class PrimitiveDataType:
                 f.write('      *(outbuffer + offset + %d) = (this->%s >> (8 * %d)) & 0xFF;\n' % (i, self.name, i) )
         f.write('      offset += sizeof(this->%s);\n' % self.name)
 
-    def deserialize(self, f):
+    def deserialize(self, f, alternate_name=None):
         cn = self.name.replace("[","").replace("]","").split(".")[-1]
         if self.type != type_to_var(self.bytes):
             f.write('      union {\n')
@@ -132,8 +132,15 @@ class MessageDataType(PrimitiveDataType):
     def serialize(self, f):
         f.write('      offset += this->%s.serialize(outbuffer + offset);\n' % self.name)
 
-    def deserialize(self, f):
-        f.write('      offset += this->%s.deserialize(inbuffer + offset);\n' % self.name)
+    def deserialize(self, f, alternate_name=None):
+        if CHECK_ALLOC_POINTER:
+            f.write('      int ret = %s.deserialize(inbuffer + offset);\n' % \
+                (alternate_name if not alternate_name is None else 'this->' + self.name))
+            f.write('      if (ret == -1) {\n        return -1;\n      } else {\n' + \
+                    '        offset += ret;\n      }\n')
+        else:
+            f.write('      offset += %s.deserialize(inbuffer + offset);\n' % \
+                (alternate_name if not alternate_name is None else 'this->' + self.name))
 
 
 class AVR_Float64DataType(PrimitiveDataType):
@@ -148,7 +155,7 @@ class AVR_Float64DataType(PrimitiveDataType):
     def serialize(self, f):
         f.write('      offset += serializeAvrFloat64(outbuffer + offset, this->%s);\n' % self.name)
 
-    def deserialize(self, f):
+    def deserialize(self, f, alternate_name=None):
         f.write('      offset += deserializeAvrFloat64(inbuffer + offset, &(this->%s));\n' % self.name)
 
 
@@ -169,7 +176,7 @@ class StringDataType(PrimitiveDataType):
         f.write('      memcpy(outbuffer + offset, this->%s, length_%s);\n' % (self.name,cn))
         f.write('      offset += length_%s;\n' % cn)
 
-    def deserialize(self, f):
+    def deserialize(self, f, alternate_name=None):
         cn = self.name.replace("[","").replace("]","")
         f.write('      uint32_t length_%s;\n' % cn)
         f.write('      arrToVar(length_%s, (inbuffer + offset));\n' % cn)
@@ -200,7 +207,7 @@ class TimeDataType(PrimitiveDataType):
         self.sec.serialize(f)
         self.nsec.serialize(f)
 
-    def deserialize(self, f):
+    def deserialize(self, f, alternate_name=None):
         self.sec.deserialize(f)
         self.nsec.deserialize(f)
 
@@ -246,7 +253,7 @@ class ArrayDataType(PrimitiveDataType):
             c.serialize(f)
             f.write('      }\n')
 
-    def deserialize(self, f):
+    def deserialize(self, f, alternate_name=None):
         if self.size == None:
             c = self.cls("st_"+self.name, self.type, self.bytes)
             # deserialize length
@@ -256,23 +263,31 @@ class ArrayDataType(PrimitiveDataType):
             f.write('      %s_lengthT |= ((uint32_t) (*(inbuffer + offset + 3))) << (8 * 3); \n' % self.name)
             f.write('      offset += sizeof(this->%s_length);\n' % self.name)
             f.write('      if(%s_lengthT > %s_length)\n' % (self.name, self.name))
-            f.write('        this->%s = (%s*)realloc(this->%s, %s_lengthT * sizeof(%s));\n' % (self.name, self.type, self.name, self.name, self.type))
+            # TODO maybe use intermediate variable to never set this->%s to NULL?
+            f.write('        this->%s = (%s*) realloc(this->%s, %s_lengthT * sizeof(%s));\n' % (self.name, self.type, self.name, self.name, self.type))
+
+            if CHECK_ALLOC_POINTER:
+                f.write('      if (this->%s == NULL) {\n        return -1;\n      }\n' % self.name)
+                
             f.write('      %s_length = %s_lengthT;\n' % (self.name, self.name))
             # copy to array
-            f.write('      for( uint32_t i = 0; i < %s_length; i++){\n' % (self.name) )
+            f.write('      for( uint32_t i = 0; i < %s_length; i++){\n  ' % (self.name) )
+            # TODO delete all alternate_name stuff
+            # TODO TODO why didn't that strategy work?
+            #c.deserialize(f, alternate_name=('(this->%s[i])' % self.name))
             c.deserialize(f)
             f.write('        memcpy( &(this->%s[i]), &(this->st_%s), sizeof(%s));\n' % (self.name, self.name, self.type))
             f.write('      }\n')
         else:
             c = self.cls(self.name+"[i]", self.type, self.bytes)
-            f.write('      for( uint32_t i = 0; i < %d; i++){\n' % (self.size) )
+            f.write('      for( uint32_t i = 0; i < %d; i++){\n  ' % (self.size) )
             c.deserialize(f)
             f.write('      }\n')
 
 #####################################################################
 # Messages
 
-class Message:
+class Message(object):
     """ Parses message definitions into something we can export. """
     global ROS_TO_EMBEDDED_TYPES
 
@@ -430,7 +445,7 @@ class Message:
 
         f.write('#endif')
 
-class Service:
+class Service(object):
     def __init__(self, name, package, definition, md5req, md5res):
         """
         @param name -  name of service
@@ -559,7 +574,11 @@ def rosserial_generate(rospack, path, mapping):
     # horrible hack -- make this die
     # TODO get rid of this? why is it global?
     global ROS_TO_EMBEDDED_TYPES
+    # also make this one die...
+    global CHECK_ALLOC_POINTER
     ROS_TO_EMBEDDED_TYPES = mapping
+    # TODO present
+    CHECK_ALLOC_POINTER = True
 
     # gimme messages
     failed = []

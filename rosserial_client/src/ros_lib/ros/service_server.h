@@ -62,6 +62,11 @@ namespace ros {
 	// TODO bounds check(ed)?
 	// TODO is return type of that int? set correctly?
         offset = req.deserialize(data);
+	// TODO create diagnostics for this?
+	if (offset == -1) {
+	  pub.loginfo("alloc failed in serviceserver callback");
+	  return;
+	}
         (obj_->*cb_)(req,resp);
 	// TODO maybe response isn't being set correctly?
 	int succ = 0;

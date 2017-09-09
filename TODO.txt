@@ -1,19 +1,58 @@
+
+TODO is it valid to call sizeof(stimuli::Pulse), given that pulse itself will have a dynamically
+allocated array? is this the bug? can the implementation support nested lists? and when the inner
+list is just one field of the type of the outer lists elements?
+
+***search source code (testing?) for other definitions of uint64_t as 4 bytes and fix
+	-> add to PR fixing this issue in rosserial_arduino
+
+**test on C++ client code on host, limiting memory to target client platforms memory sizes
+ with ulimit -v / <sys/resource.h> setrlimit(...)
+	see: https://stackoverflow.com/questions/9154115/how-to-set-memory-use-limit-when-writing-c-program-and-what-happens-if-once-it-e
+
+**should i be testing the return values of realloc in the deserialization code and propagating
+an error value up to indicate / report failure?
+
+**reasons a returned offset of 0 shouldn't be treated as an error?
+
+compile flag option to check realloc / vs not check and hope for best?
+
 script to automatically add upstream? git provide a way for that?
 
-why the different sizes in this union definition? generated a little before 4b4f03bc2
-, but should be same
+in some generated C++ code using variable length types, why sometimes this-><field_name>_length
+and sometimes just states_length? both seem correct, but be consistent?
 
-      union {
-        uint64_t real;
-        uint32_t base;
-      } u_ms_on;
-      u_ms_on.base = 0;
-      u_ms_on.base |= ((uint32_t) (*(inbuffer + offset + 0))) << (8 * 0);
-      u_ms_on.base |= ((uint32_t) (*(inbuffer + offset + 1))) << (8 * 1);
-      u_ms_on.base |= ((uint32_t) (*(inbuffer + offset + 2))) << (8 * 2);
-      u_ms_on.base |= ((uint32_t) (*(inbuffer + offset + 3))) << (8 * 3);
-      this->ms_on = u_ms_on.real;
+should we free trailing memory if <field_name>_lengthT is less than <field_name>_length?
+	-how does that generally work for realloced memory?
 
-(from arduinoXXX/libraries/ros_lib/stimuli/State.h)
+what exactly is st_<field_name> for? (used in deserialize. seems complementary to pointer
+of _<field_name>_type)?
 
-which code generates this?
+is making just a pointer to a type sufficient to use array like indexing? also require that
+that type is a certain size? that it has been allocated in an array? (I assume it is not an
+array of pointers, otherwise it should be **?)
+
+what is the purpose of the "typedef <normaltype> _<field_name>_type;" lines?
+they seem to only be used in the public definition, not later?
+
+how can memcpy or realloc fail? i feel like realloc might just not be able to allocate enough mem?
+	-i would like to be able to print how much space is available for allocing in the main
+	 Arduino code, but not sure how to also take into consideration possible fragmentation
+
+can sizeof not work as expected for some custom classes?
+
+**why do they have one static version of the type, deserialize there, and then memcpy that to
+the correct place in the array? no way to just treat the memory at the correct place as this type,
+and deserialize at the correct index?
+
+(i.e. why not just "offset += (this->states[i]).deserialize(inbuffer + offset)" ?)
+
+why are serialize/deserialize functions in generated code virtual? they aren't expected to be
+redefined by subclasses, are they? other reasons?
+
+why does generated code need to include stdint and string? i guess there's no harm?
+
+if realloc returns a different pointer (block starting at diff address) is that original bit freed?
+-do i need to store the original pointer, check and free if different?
+
+
