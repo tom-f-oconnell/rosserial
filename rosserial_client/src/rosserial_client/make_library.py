@@ -134,7 +134,7 @@ class MessageDataType(PrimitiveDataType):
 
     def deserialize(self, f, alternate_name=None):
         if CHECK_ALLOC_POINTER:
-            f.write('      int ret = %s.deserialize(inbuffer + offset);\n' % \
+            f.write('      ret = %s.deserialize(inbuffer + offset);\n' % \
                 (alternate_name if not alternate_name is None else 'this->' + self.name))
             f.write('      if (ret == -1) {\n        return -1;\n      } else {\n' + \
                     '        offset += ret;\n      }\n')
@@ -378,6 +378,10 @@ class Message(object):
         f.write('    virtual int deserialize(unsigned char *inbuffer)\n')
         f.write('    {\n')
         f.write('      int offset = 0;\n')
+        
+        if CHECK_ALLOC_POINTER:
+            f.write('      int ret;\n')
+        
         for d in self.data:
             d.deserialize(f)
         f.write('     return offset;\n');
