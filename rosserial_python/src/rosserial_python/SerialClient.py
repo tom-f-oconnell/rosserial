@@ -176,7 +176,7 @@ class ServiceServer:
         # (the length of the last argument) (and that msg isn't larger than buffer if buffer nonzero)
         # TODO put behind debugging flag? or just generally build up debugging support / run /
         # compile time checking for buffer overflows?
-        rospy.logwarn('buffer length on call: ' + str(len(data_buffer.getvalue())))
+        #rospy.logwarn('buffer length on call: ' + str(len(data_buffer.getvalue())))
         if self.parent.send(self.id, data_buffer.getvalue()) >= 0:
             # TODO maybe timeout and either directly retry or indicate we need to retry?
             # regular publication handled same way?
